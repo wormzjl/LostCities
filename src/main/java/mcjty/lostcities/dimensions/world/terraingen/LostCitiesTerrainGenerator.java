@@ -354,7 +354,7 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
             if (map != null) {
                 int x = driver.getX();
                 int z = driver.getZ();
-                if (driver.getBlockDown() != airChar) {
+                if (driver.getY() != 0 && driver.getBlockDown() != airChar) {
                     driver.block(torchState.getBlock().getStateFromMeta(map.get("up")));
                 } else if (x > 0 && driver.getBlockWest() != airChar) {
                     driver.block(torchState.getBlock().getStateFromMeta(map.get("east")));
@@ -494,7 +494,7 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                             int height = yy * 16;
                             driver.current(x, height, z);
                             for (int y = 0; y < 16; y++) {
-                                driver.add(((height + y) <= info.waterLevel) ? liquidChar : airChar);
+                                driver.add(((height + y) < info.waterLevel) ? liquidChar : airChar);
                             }
                         }
                     }
@@ -509,7 +509,7 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                             driver.current(x, cury, 0);
                             for (int z = 0; z < 16; z++) {
                                 char d = driver.getBlock();
-                                if (d != airChar || cury <= info.waterLevel) {
+                                if (d != airChar || cury < info.waterLevel) {
                                     float damage = damageArea.getDamage(cx + x, cury, cz + z) * damageFactor;
                                     if (damage >= 0.001) {
                                         Character newd = damageArea.damageBlock(d, provider, cury, damage, info.getCompiledPalette(), liquidChar);
@@ -654,7 +654,7 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
         if (dowater) {
             // Special case for drowned city
             driver.setBlockRangeSafe(x, height1, z, info.waterLevel, liquidChar);
-            driver.setBlockRangeSafe(x, info.waterLevel+1, z, height2, airChar);
+            driver.setBlockRangeSafe(x, Math.max(info.waterLevel, height1), z, height2, airChar);
         } else {
             driver.setBlockRange(x, height1, z, height2, airChar);
         }
@@ -753,15 +753,25 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
     }
 
     /**
-     * Get the lowest height of a corner of four chunks
+     * Get the ground height of a corner of four chunks
+     * if there is city chuck nearby, the height should be the city's height level
      * info: reference to the bottom-right chunk. The 0,0 position of this chunk is the reference
      */
     private int getHeightAt00Corner(BuildingInfo info) {
         int h = getHeightForChunk(info);
-        h = Math.min(h, getHeightForChunk(info.getXmin()));
-        h = Math.min(h, getHeightForChunk(info.getZmin()));
-        h = Math.min(h, getHeightForChunk(info.getXmin().getZmin()));
-        return h;
+        int h_X = getHeightForChunk(info.getXmin());
+        int h_Z = getHeightForChunk(info.getZmin());
+        int h_XZ = getHeightForChunk(info.getXmin().getZmin());
+        ArrayList<Integer> cites = new ArrayList(4);
+        if(info.isCity())
+            cites.add(h);
+        if(info.getXmin().isCity())
+            cites.add(h_X);
+        if(info.getZmin().isCity())
+            cites.add(h_Z);
+        if(info.getXmin().getZmin().isCity())
+            cites.add(h_XZ);
+        return cites.isEmpty() ? Math.min(h,Math.min(h_X,Math.min(h_Z,h_XZ))) : Collections.min(cites);
     }
 
     private int getHeightForChunk(BuildingInfo info) {
@@ -771,7 +781,7 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
             if (info.isOcean()) {
                 return info.groundLevel - 4;
             } else {
-                return info.getCityGroundLevel();
+                return info.groundLevel;
             }
         }
     }
@@ -780,6 +790,8 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
     private void flattenChunkToCityBorder(int chunkX, int chunkZ) {
         int cx = chunkX * 16;
         int cz = chunkZ * 16;
+
+        ChunkHeightmap heightmap = provider.getHeightmap(chunkX, chunkZ);
 
         BuildingInfo info = BuildingInfo.getBuildingInfo(chunkX, chunkZ, provider);
         float h00 = getHeightAt00Corner(info);
@@ -821,8 +833,9 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                         }
                     }
 
-                    int offset = (int) (Math.sqrt(mindist) * 2);
-                    flattenChunkBorder(info, x, offset, z, provider.rand, height);
+                    double percent = Math.atan(mindist / 85) * 0.8;
+                    int offset = Math.abs(heightmap.getHeight(x,z) - height);
+                    flattenChunkBorder(info, x, (int)(offset * percent), z, provider.rand, height);
                 }
             }
         }
@@ -842,8 +855,9 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                     }
                     int height = minheight;//info.getCityGroundLevel();
 
-                    int offset = (int) (Math.sqrt(mindist) * 2);
-                    flattenChunkBorderDownwards(info, x, offset, z, provider.rand, height);
+                    double percent = Math.atan(mindist / 85) * 0.8;
+                    int offset = Math.abs(heightmap.getHeight(x,z) - height);
+                    flattenChunkBorderDownwards(info, x, (int)(offset * percent), z, provider.rand, height);
                 }
             }
         }
@@ -862,7 +876,7 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
 
     private void flattenChunkBorder(BuildingInfo info, int x, int offset, int z, Random rand, int level) {
         driver.current(x, 0, z);
-        for (int y = 0; y <= (level - offset - rand.nextInt(2)); y++) {
+        for (int y = 0; y <= level - offset - rand.nextInt(2); y++) {
             char b = driver.getBlock();
             if (b != bedrockChar) {
                 driver.add(baseChar);
@@ -870,13 +884,11 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                 driver.incY();
             }
         }
-        int r = rand.nextInt(2);
-        clearRange(info, x, z, level + offset + r, 230, info.waterLevel > info.groundLevel);
+        clearRange(info, x, z,level + offset + rand.nextInt(2), 230, info.waterLevel > info.groundLevel);
     }
 
     private void flattenChunkBorderDownwards(BuildingInfo info, int x, int offset, int z, Random rand, int level) {
-        int r = rand.nextInt(2);
-        clearRange(info, x, z, level + offset + r, 230, info.waterLevel > info.groundLevel);
+        clearRange(info, x, z,level + offset + rand.nextInt(2), 230, info.waterLevel > info.groundLevel);
     }
 
     private void doCityChunk(int chunkX, int chunkZ, BuildingInfo info) {
@@ -1448,6 +1460,10 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                 if (vr > .5 || vl > .5) {
                     int height = getInterpolatedHeight(info, x, z);
                     driver.current(x, height, z);
+                    if (height == 0) {
+                        // whoops, it's air all the way down. No rubble here
+                        continue;
+                    }
                     char c = driver.getBlockDown();
                     if (c != airChar && c != liquidChar) {
                         for (int i = 0; i < vr; i++) {
@@ -1532,9 +1548,10 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
         int baseheight = (int) (info.getCityGroundLevel() + 1 + (info.ruinHeight * info.getNumFloors() * 6.0f));
 
         for (int x = 0; x < 16; ++x) {
-            for (int z = 0; z < 16; ++z) {
+            zLoop: for (int z = 0; z < 16; ++z) {
                 double v = ruinBuffer[x + z * 16];
                 int height = baseheight + (int) v;
+                if (height == 0) continue; // Ruins need to sit on something, and the void isn't something
                 driver.current(x, height, z);
                 height = info.getMaxHeight() + 10 - height;
                 int vl = 0;
@@ -1551,6 +1568,10 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                             c = driver.getBlockDown();
                             while (c == airChar || c == liquidChar) {
                                 driver.decY();
+                                if (driver.getY() == 0) {
+                                    // whoops, it's air all the way down. No ruins here
+                                    continue zLoop;
+                                }
                                 height++;   // Make sure we keep on filling with air a bit longer because we are lowering here
                                 c = driver.getBlockDown();
                             }
@@ -1831,13 +1852,18 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
     }
 
     private void generateRandomVegetation(BuildingInfo info, Random rand, int height) {
+        if (height == 0) return; // Leaf blocks need to sit on something, and the void isn't something
         if (info.getXmin().hasBuilding) {
             for (int x = 0; x < info.profile.THICKNESS_OF_RANDOM_LEAFBLOCKS; x++) {
-                for (int z = 0; z < 16; z++) {
+                zLoop: for (int z = 0; z < 16; z++) {
                     driver.current(x, height, z);
                     // @todo can be more optimal? Only go down to non air in case random succeeds?
                     while (driver.getBlockDown() == airChar) {
                         driver.decY();
+                        if (driver.getY() == 0) {
+                            // whoops, it's air all the way down. No leaf blocks here
+                            continue zLoop;
+                        }
                     }
                     float v = Math.min(.8f, info.profile.CHANCE_OF_RANDOM_LEAFBLOCKS * (info.profile.THICKNESS_OF_RANDOM_LEAFBLOCKS + 1 - x));
                     int cnt = 0;
@@ -1850,11 +1876,15 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
         }
         if (info.getXmax().hasBuilding) {
             for (int x = 15 - info.profile.THICKNESS_OF_RANDOM_LEAFBLOCKS; x < 15; x++) {
-                for (int z = 0; z < 16; z++) {
+                zLoop: for (int z = 0; z < 16; z++) {
                     driver.current(x, height, z);
                     // @todo can be more optimal? Only go down to non air in case random succeeds?
                     while (driver.getBlockDown() == airChar) {
                         driver.decY();
+                        if (driver.getY() == 0) {
+                            // whoops, it's air all the way down. No leaf blocks here
+                            continue zLoop;
+                        }
                     }
                     float v = Math.min(.8f, info.profile.CHANCE_OF_RANDOM_LEAFBLOCKS * (x - 14 + info.profile.THICKNESS_OF_RANDOM_LEAFBLOCKS));
                     int cnt = 0;
@@ -1867,11 +1897,15 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
         }
         if (info.getZmin().hasBuilding) {
             for (int z = 0; z < info.profile.THICKNESS_OF_RANDOM_LEAFBLOCKS; z++) {
-                for (int x = 0; x < 16; x++) {
+                xLoop: for (int x = 0; x < 16; x++) {
                     driver.current(x, height, z);
                     // @todo can be more optimal? Only go down to non air in case random succeeds?
                     while (driver.getBlockDown() == airChar) {
                         driver.decY();
+                        if (driver.getY() == 0) {
+                            // whoops, it's air all the way down. No leaf blocks here
+                            continue xLoop;
+                        }
                     }
                     float v = Math.min(.8f, info.profile.CHANCE_OF_RANDOM_LEAFBLOCKS * (info.profile.THICKNESS_OF_RANDOM_LEAFBLOCKS + 1 - z));
                     int cnt = 0;
@@ -1884,11 +1918,15 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
         }
         if (info.getZmax().hasBuilding) {
             for (int z = 15 - info.profile.THICKNESS_OF_RANDOM_LEAFBLOCKS; z < 15; z++) {
-                for (int x = 0; x < 16; x++) {
+                xLoop: for (int x = 0; x < 16; x++) {
                     driver.current(x, height, z);
                     // @todo can be more optimal? Only go down to non air in case random succeeds?
                     while (driver.getBlockDown() == airChar) {
                         driver.decY();
+                        if (driver.getY() == 0) {
+                            // whoops, it's air all the way down. No leaf blocks here
+                            continue xLoop;
+                        }
                     }
                     float v = info.profile.CHANCE_OF_RANDOM_LEAFBLOCKS * (z - 14 + info.profile.THICKNESS_OF_RANDOM_LEAFBLOCKS);
                     int cnt = 0;
@@ -1911,6 +1949,8 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
         boolean el02 = info.getXmin().getZmax().isElevatedParkSection();
         boolean el12 = info.getZmax().isElevatedParkSection();
         boolean el22 = info.getXmax().getZmax().isElevatedParkSection();
+        //prevent grass under water
+        char c = height < waterLevel ? gravelChar : grassChar;
         for (int x = 0; x < 16; ++x) {
             for (int z = 0; z < 16; ++z) {
                 if (x == 0 || x == 15 || z == 0 || z == 15) {
@@ -1918,40 +1958,40 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                     if (elevated) {
                         if (x == 0 && z == 0) {
                             if (el01 && el00 && el10) {
-                                b = grassChar;
+                                b = c;
                             }
                         } else if (x == 15 && z == 0) {
                             if (el21 && el20 && el10) {
-                                b = grassChar;
+                                b = c;
                             }
                         } else if (x == 0 && z == 15) {
                             if (el01 && el02 && el12) {
-                                b = grassChar;
+                                b = c;
                             }
                         } else if (x == 15 && z == 15) {
                             if (el12 && el22 && el21) {
-                                b = grassChar;
+                                b = c;
                             }
                         } else if (x == 0) {
                             if (el01) {
-                                b = grassChar;
+                                b = c;
                             }
                         } else if (x == 15) {
                             if (el21) {
-                                b = grassChar;
+                                b = c;
                             }
                         } else if (z == 0) {
                             if (el10) {
-                                b = grassChar;
+                                b = c;
                             }
                         } else if (z == 15) {
                             if (el12) {
-                                b = grassChar;
+                                b = c;
                             }
                         }
                     }
                 } else {
-                    b = grassChar;
+                    b = c;
                 }
                 driver.current(x, height, z).block(b);
             }
@@ -2097,7 +2137,8 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                                     if (info.profile.GENERATE_LIGHTING) {
                                         info.addTorchTodo(driver.getCurrent(), orientations);
                                     } else {
-                                        b = airChar;        // No torches
+                                        // No torches
+                                        b = airChar;
                                     }
                                 } else if (inf.getLoot() != null && !inf.getLoot().isEmpty()) {
                                     if (!info.noLoot) {

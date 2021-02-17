@@ -16,6 +16,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.biome.Biome;
 import net.minecraftforge.common.MinecraftForge;
+import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -724,7 +725,7 @@ public class BuildingInfo implements ILostChunkInfo {
             highwayXLevel = Highway.getXHighwayLevel(chunkX, chunkZ, provider, profile);
             highwayZLevel = Highway.getZHighwayLevel(chunkX, chunkZ, provider, profile);
 
-            if (rand.nextDouble() < .2f) {
+            if (rand.nextDouble() < profile.PARK_CHANCE) {
                 streetType = StreetType.values()[rand.nextInt(StreetType.values().length)];
             } else {
                 streetType = StreetType.NORMAL;
@@ -810,7 +811,7 @@ public class BuildingInfo implements ILostChunkInfo {
                 }
             };
             String randomPart = building.getRandomPart(rand, conditionContext);
-            floorTypes[i] = AssetRegistries.PARTS.get(randomPart);
+            floorTypes[i] = Validate.notNull(AssetRegistries.PARTS.get(randomPart), "Null part for " + randomPart);
             randomPart = building.getRandomPart2(rand, conditionContext);
             floorTypes2[i] = AssetRegistries.PARTS.get(randomPart);
             connectionAtX[i] = isCity(chunkX - 1, chunkZ, provider) && (rand.nextFloat() < profile.BUILDING_DOORWAYCHANCE);
