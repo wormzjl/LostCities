@@ -2362,7 +2362,7 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
 
             height += 6;    // We currently only support 6 here
         }
-
+/*
         if (info.floorsBelowGround > 0) {
             // Underground we replace the glass with the filler
             for (int x = 0; x < 16; x++) {
@@ -2375,7 +2375,7 @@ public class LostCitiesTerrainGenerator extends NormalTerrainGenerator {
                 setBlocksFromPalette(15, lowestLevel, z, Math.min(info.getCityGroundLevel(), info.getXmax().getCityGroundLevel()) + 1, palette, fillerBlock);
             }
         }
-
+*/
         if (info.floorsBelowGround >= 1) {
             // We have to potentially connect to corridors
             generateCorridorConnections(info);
