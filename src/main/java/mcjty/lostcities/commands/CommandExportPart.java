@@ -55,8 +55,9 @@ public class CommandExportPart implements ICommand {
             String palettechars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}\\|`~:;',./<>?";
             int idx = 0;
             Map<IBlockState, Character> mapping = new HashMap<>();
-            Palette palette = new Palette("old");
+            //Palette palette = new Palette("old");
             Palette paletteNew = new Palette("new");
+            /*
             LostCityChunkGenerator provider = WorldTypeTools.getChunkGenerator(sender.getEntityWorld().provider.getDimension());
             BuildingInfo info = BuildingInfo.getBuildingInfo(start.getX() >> 4, start.getZ() >> 4, provider);
             for (Character character : info.getCompiledPalette().getCharacters()) {
@@ -66,6 +67,7 @@ public class CommandExportPart implements ICommand {
                     mapping.put(state, character);
                 }
             }
+            */
 
             List<Slice> slices = new ArrayList<>();
             for (int f = 0 ; f < cntSlices ; f++) {
@@ -84,7 +86,7 @@ public class CommandExportPart implements ICommand {
                             while (true) {
                                 character = state.getBlock() == Blocks.AIR ? ' ' : palettechars.charAt(idx);
                                 idx++;
-                                if (!palette.getPalette().containsKey(character) && !paletteNew.getPalette().containsKey(character)) {
+                                if (!paletteNew.getPalette().containsKey(character)) {
                                     break;
                                 }
                             }
@@ -105,7 +107,7 @@ public class CommandExportPart implements ICommand {
             BuildingPart part = new BuildingPart("part", 16, 16, sl);
             array.add(part.writeToJSon());
 
-            array.add(palette.writeToJSon());
+            //array.add(palette.writeToJSon());
             array.add(paletteNew.writeToJSon());
 
 //            AssetRegistries.STYLES.writeToJson(array);

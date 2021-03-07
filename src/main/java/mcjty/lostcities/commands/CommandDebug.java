@@ -40,7 +40,8 @@ public class CommandDebug implements ICommand {
         if (sender instanceof EntityPlayer) {
             EntityPlayer player = (EntityPlayer) sender;
             BlockPos position = player.getPosition();
-            LostCityChunkGenerator provider = WorldTypeTools.getChunkGenerator(sender.getEntityWorld().provider.getDimension());
+            ChunkProviderServer chunkProvider = ((WorldServer) player.getEntityWorld()).getChunkProvider();
+            LostCityChunkGenerator provider = (LostCityChunkGenerator) chunkProvider.chunkGenerator;
             BuildingInfo info = BuildingInfo.getBuildingInfo(position.getX() >> 4, position.getZ() >> 4, provider);
             System.out.println("profile = " + info.profile.getName());
             System.out.println("provider.hasMansion = " + info.provider.hasMansion(info.chunkX, info.chunkZ));

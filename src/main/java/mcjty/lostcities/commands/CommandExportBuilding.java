@@ -59,6 +59,7 @@ public class CommandExportBuilding implements ICommand {
             int idx = 0;
             Map<IBlockState, Character> mapping = new HashMap<>();
             Palette palette = new Palette("give_name");
+            /*
             LostCityChunkGenerator provider = WorldTypeTools.getChunkGenerator(sender.getEntityWorld().provider.getDimension());
             BuildingInfo info = BuildingInfo.getBuildingInfo(start.getX() >> 4, start.getZ() >> 4, provider);
             for (Character character : info.getCompiledPalette().getCharacters()) {
@@ -68,6 +69,7 @@ public class CommandExportBuilding implements ICommand {
                     mapping.put(state, character);
                 }
             }
+            */
 
             for (int f = 0 ; f < floors ; f++) {
                 Slice[] slices = new Slice[6];
